@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERP integration</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>College ERP link</h1>
+    <p>Sync official student master data into the campus club platform</p>
+    <nav class="tabs">
+      <a href="/">Home</a>
+      <a href="/events.html">Upcoming events</a>
+      <a href="/enroll.html">Enroll</a>
+      <a href="/verify-attendance.html">Verify attendance</a>
+      <a href="/certificates.html">My certificates</a>
+      <a href="/erp.html">ERP link</a>
+      <a href="/coordinator.html">Coordinator</a>
+    </nav>
+  </header>
+
+  <main>
+    <div id="erp-stats" class="stats-row"></div>
+
+    <div class="card interactive">
+      <h2>Connection status</h2>
+      <pre id="status" style="margin:0;white-space:pre-wrap;color:var(--muted);font-size:0.9rem">Loading…</pre>
+    </div>
+
+    <div class="card interactive">
+      <h2>Webhook (ERP → platform)</h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted)">POST student records when ERP roster changes:</p>
+      <p><strong>URL:</strong> <code id="webhookUrl"></code>
+        <button type="button" class="btn btn-sm secondary" id="copyUrl" style="margin-top:0;margin-left:0.5rem">Copy URL</button>
+      </p>
+      <p><strong>Header:</strong> <code>X-ERP-Secret: demo-erp-secret-change-me</code></p>
+      <button type="button" class="btn" id="syncDemo">Run demo sync (add STU-2024-004)</button>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card interactive">
+      <h2>Verify certificate (public)</h2>
+      <label for="token">Certificate verify token</label>
+      <input id="token" type="text" placeholder="Paste token from certificate">
+      <button type="button" class="btn secondary" id="verifyCert">Verify online</button>
+      <div id="certResult" style="margin-top:1rem"></div>
+    </div>
+  </main>
+
+  <footer>Set ERP_WEBHOOK_SECRET in production</footer>
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const webhookUrl = `${location.origin}/api/erp/webhook`;
+    document.getElementById('webhookUrl').textContent = webhookUrl;
+    document.getElementById('copyUrl').onclick = () => UI.copyText(webhookUrl);
+
+    async function refreshStatus() {
+      const s = await api('/api/erp/status');
+      document.getElementById('status').textContent = JSON.stringify(s, null, 2);
+      document.getElementById('erp-stats').innerHTML = `
+        <div class="stat-card"><div class="num">${s.studentRecords || 0}</div><div class="lbl">Students synced</div></div>
+        <div class="stat-card"><div class="num">${s.linked ? 'ON' : 'OFF'}</div><div class="lbl">ERP link</div></div>
+        <div class="stat-card"><div class="num" style="font-size:1rem">${s.lastSyncAt ? new Date(s.lastSyncAt).toLocaleDateString() : '—'}</div><div class="lbl">Last sync</div></div>`;
+    }
+
+    refreshStatus().catch(() => UI.toast('Server offline — run npm start', 'error'));
+
+    document.getElementById('syncDemo').onclick = async () => {
+      const btn = document.getElementById('syncDemo');
+      const msg = document.getElementById('msg');
+      UI.setLoading(btn, true);
+      try {
+        const r = await fetch('/api/erp/webhook', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-ERP-Secret': 'demo-erp-secret-change-me',
+          },
+          body: JSON.stringify({
+            students: [{
+              erpStudentId: 'STU-2024-004',
+              fullName: 'Demo Sync Student',
+              email: 'demo4@college.edu',
+              department: 'CSE',
+            }],
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error);
+        showMsg(msg, `Synced ${data.upserted} student(s). Total: ${data.totalStudents}`, true);
+        UI.toast('ERP sync complete', 'success');
+        UI.celebrate(btn.closest('.card'));
+        await refreshStatus();
+      } catch (e) {
+        showMsg(msg, e.message, false);
+        UI.toast(e.message, 'error');
+      } finally {
+        UI.setLoading(btn, false);
+      }
+    };
+
+    document.getElementById('verifyCert').onclick = async () => {
+      const t = document.getElementById('token').value.trim();
+      const wrap = document.getElementById('certResult');
+      try {
+        const data = await api(`/api/certificates/verify?token=${encodeURIComponent(t)}`);
+        if (data.valid) {
+          wrap.innerHTML = `
+            <div class="verify-success">
+              <div class="verify-ring">✓</div>
+              <p><strong>Valid certificate</strong></p>
+              <p>${UI.escapeHtml(data.participant?.name)} · ${UI.escapeHtml(data.event?.title)}</p>
+            </div>`;
+          UI.toast('Certificate is valid', 'success');
+        } else {
+          wrap.innerHTML = `<p class="msg show err">${UI.escapeHtml(data.message)}</p>`;
+          UI.toast('Invalid token', 'error');
+        }
+      } catch (e) {
+        UI.toast(e.message, 'error');
+      }
+    };
+  </script>
+</body>
+</html>

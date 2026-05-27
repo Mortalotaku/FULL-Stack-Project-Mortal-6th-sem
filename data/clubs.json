@@ -1,0 +1,12 @@
+[
+  {
+    "id": "club-tech",
+    "name": "Tech Club",
+    "description": "Coding, hackathons, workshops"
+  },
+  {
+    "id": "club-culture",
+    "name": "Cultural Society",
+    "description": "Music, dance, fest"
+  }
+]

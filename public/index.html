@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Club Platform</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Campus Club &amp; Events</h1>
+    <p>ERP-linked directory · Upcoming events · Enrollment · Verified attendance · Digital certificates</p>
+    <nav class="tabs">
+      <a href="/">Home</a>
+      <a href="/events.html">Upcoming events</a>
+      <a href="/enroll.html">Enroll</a>
+      <a href="/verify-attendance.html">Verify attendance</a>
+      <a href="/certificates.html">My certificates</a>
+      <a href="/erp.html">ERP link</a>
+      <a href="/coordinator.html">Coordinator</a>
+    </nav>
+  </header>
+
+  <main>
+    <div id="stats" class="stats-row"></div>
+
+    <div class="card interactive">
+      <h2>Your journey</h2>
+      <div class="steps" id="steps"></div>
+    </div>
+
+    <div class="card">
+      <h2>Quick actions</h2>
+      <div class="btn-row">
+        <a href="/events.html" class="btn" style="text-decoration:none;display:inline-block">Browse events</a>
+        <a href="/enroll.html" class="btn secondary" style="text-decoration:none;display:inline-block">Enroll now</a>
+        <a href="/verify-attendance.html" class="btn secondary" style="text-decoration:none;display:inline-block">Verify attendance</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>Campus Club Platform — interactive demo</footer>
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const steps = [
+      { n: 1, title: 'ERP sync', desc: 'Official student IDs from college ERP', href: '/erp.html' },
+      { n: 2, title: 'Browse & enroll', desc: 'Upcoming club events with one-click enroll', href: '/events.html' },
+      { n: 3, title: 'Verify attendance', desc: 'Enter coordinator code at the venue', href: '/verify-attendance.html' },
+      { n: 4, title: 'Get certificate', desc: 'Download verified participation certificate', href: '/certificates.html' },
+    ];
+
+    document.getElementById('steps').innerHTML = steps.map((s) => `
+      <a href="${s.href}" class="step-item" style="text-decoration:none;color:inherit">
+        <span class="step-num">${s.n}</span>
+        <div>
+          <strong>${s.title}</strong>
+          <div style="font-size:0.85rem;color:var(--muted);margin-top:0.2rem">${s.desc}</div>
+        </div>
+      </a>`).join('');
+
+    (async () => {
+      try {
+        const [events, erp] = await Promise.all([
+          api('/api/events/upcoming'),
+          api('/api/erp/status'),
+        ]);
+        document.getElementById('stats').innerHTML = `
+          <div class="stat-card"><div class="num">${events.length}</div><div class="lbl">Upcoming events</div></div>
+          <div class="stat-card"><div class="num">${erp.studentRecords || 0}</div><div class="lbl">ERP students</div></div>
+          <div class="stat-card"><div class="num">${events.reduce((a, e) => a + (e.enrolledCount || 0), 0)}</div><div class="lbl">Total enrollments</div></div>
+          <div class="stat-card"><div class="num">✓</div><div class="lbl">ERP ${erp.linked ? 'linked' : 'offline'}</div></div>`;
+      } catch {
+        document.getElementById('stats').innerHTML = `
+          <div class="stat-card"><div class="num">—</div><div class="lbl">Start server: npm start</div></div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify attendance</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Verify attendance</h1>
+    <p>Enter the code shared by your club coordinator</p>
+    <nav class="tabs">
+      <a href="/">Home</a>
+      <a href="/events.html">Upcoming events</a>
+      <a href="/enroll.html">Enroll</a>
+      <a href="/verify-attendance.html">Verify attendance</a>
+      <a href="/certificates.html">My certificates</a>
+      <a href="/erp.html">ERP link</a>
+      <a href="/coordinator.html">Coordinator</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="card interactive" id="verify-card">
+      <h2>Attendance verification</h2>
+      <label for="eventSelect">Event</label>
+      <select id="eventSelect"><option value="">Loading…</option></select>
+
+      <label for="erpStudentId">ERP student ID</label>
+      <input id="erpStudentId" data-student-input data-sync-student="true" type="text" placeholder="STU-2024-001">
+
+      <label for="attendanceCode">Attendance code</label>
+      <input id="attendanceCode" type="text" placeholder="From coordinator" autocomplete="off" style="text-transform:uppercase;letter-spacing:0.15em;font-weight:600">
+
+      <button type="button" class="btn" id="go">Verify &amp; record</button>
+      <div id="msg" class="msg"></div>
+      <div id="success-panel" hidden class="verify-success">
+        <div class="verify-ring">✓</div>
+        <p id="success-text"></p>
+        <a href="/certificates.html" class="btn" id="cert-link" style="text-decoration:none;display:inline-block">Get certificate</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>Must be enrolled · valid code required</footer>
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const goBtn = document.getElementById('go');
+
+    (async () => {
+      const sel = document.getElementById('eventSelect');
+      const events = await api('/api/events/upcoming').catch(() => []);
+      sel.innerHTML = '<option value="">Select event…</option>' +
+        events.map((e) => `<option value="${UI.escapeHtml(e.id)}">${UI.escapeHtml(e.title)}</option>`).join('');
+      if (params.get('eventId')) sel.value = params.get('eventId');
+      if (params.get('code')) document.getElementById('attendanceCode').value = params.get('code');
+    })();
+
+    goBtn.onclick = async () => {
+      const msg = document.getElementById('msg');
+      const panel = document.getElementById('success-panel');
+      msg.className = 'msg';
+      panel.hidden = true;
+      UI.setLoading(goBtn, true);
+      try {
+        const data = await api('/api/attendance/verify', {
+          method: 'POST',
+          body: JSON.stringify({
+            eventId: document.getElementById('eventSelect').value,
+            erpStudentId: document.getElementById('erpStudentId').value.trim(),
+            attendanceCode: document.getElementById('attendanceCode').value.trim(),
+          }),
+        });
+        const sid = document.getElementById('erpStudentId').value.trim();
+        UI.setStudentId(sid);
+        showMsg(msg, data.message || 'Verified', true);
+        UI.toast('Attendance verified!', 'success');
+        UI.celebrate(document.getElementById('verify-card'));
+        document.getElementById('success-text').textContent =
+          `${data.studentName || sid} — ${data.eventTitle || 'Event'}`;
+        panel.hidden = false;
+        document.getElementById('cert-link').href =
+          `/certificates.html?erpStudentId=${encodeURIComponent(sid)}`;
+      } catch (e) {
+        showMsg(msg, e.message, false);
+        UI.toast(e.message, 'error');
+      } finally {
+        UI.setLoading(goBtn, false);
+      }
+    };
+  </script>
+</body>
+</html>

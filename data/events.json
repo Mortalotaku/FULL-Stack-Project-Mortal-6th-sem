@@ -1,0 +1,35 @@
+[
+  {
+    "id": "evt-1",
+    "title": "Inter-College Hackathon 2026",
+    "clubId": "club-tech",
+    "venue": "Main Auditorium",
+    "date": "2026-06-03",
+    "startTime": "09:00",
+    "capacity": 120,
+    "attendanceCode": "70A59E1B",
+    "createdAt": "2026-05-27T07:44:06.731Z"
+  },
+  {
+    "id": "evt-2",
+    "title": "Spring Fest — Open Mic",
+    "clubId": "club-culture",
+    "venue": "Open Air Theatre",
+    "date": "2026-06-10",
+    "startTime": "17:00",
+    "capacity": 200,
+    "attendanceCode": "098B3F01",
+    "createdAt": "2026-05-27T07:44:06.731Z"
+  },
+  {
+    "id": "evt-3",
+    "title": "Industry Talk: AI in Campus",
+    "clubId": "club-tech",
+    "venue": "Seminar Hall A",
+    "date": "2026-06-17",
+    "startTime": "15:30",
+    "capacity": 80,
+    "attendanceCode": "0E2A2A1D",
+    "createdAt": "2026-05-27T07:44:06.731Z"
+  }
+]

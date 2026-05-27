@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coordinator — attendance codes</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Club coordinator</h1>
+    <p>Share codes · Track live attendance</p>
+    <nav class="tabs">
+      <a href="/">Home</a>
+      <a href="/events.html">Events</a>
+      <a href="/coordinator.html">Coordinator</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="card interactive">
+      <label for="adminKey">Admin key</label>
+      <input id="adminKey" type="password" value="admin-demo" autocomplete="off">
+      <button type="button" class="btn" id="load">Load events &amp; codes</button>
+    </div>
+    <div id="events"></div>
+    <div id="attendance"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const loadBtn = document.getElementById('load');
+
+    loadBtn.onclick = async () => {
+      const wrap = document.getElementById('events');
+      UI.setLoading(loadBtn, true);
+      wrap.innerHTML = UI.skeletonCards(2);
+      try {
+        const key = document.getElementById('adminKey').value;
+        const r = await fetch('/api/events', { headers: { 'X-Admin-Key': key } });
+        const events = await r.json();
+        if (!r.ok) throw new Error(events.error || 'Failed');
+        wrap.innerHTML = events.map((e) => `
+          <div class="card interactive event-coord" data-id="${UI.escapeHtml(e.id)}">
+            <h2>${UI.escapeHtml(e.title)}</h2>
+            <p style="margin:0;color:var(--muted)">${UI.escapeHtml(e.date)} · ${UI.escapeHtml(e.id)}</p>
+            ${UI.renderCapacityBar(e.enrolledCount || 0, e.capacity)}
+            <p style="margin-top:0.75rem;font-size:1.25rem;letter-spacing:0.2em">
+              <code class="att-code">${UI.escapeHtml(e.attendanceCode)}</code>
+            </p>
+            <div class="btn-row">
+              <button type="button" class="btn btn-sm copy-code" data-code="${UI.escapeHtml(e.attendanceCode)}">Copy code</button>
+              <button type="button" class="btn btn-sm secondary share-link" data-id="${UI.escapeHtml(e.id)}" data-code="${UI.escapeHtml(e.attendanceCode)}">Share verify link</button>
+              <button type="button" class="btn btn-sm secondary roster-btn" data-id="${UI.escapeHtml(e.id)}">Live roster</button>
+            </div>
+          </div>`).join('');
+        UI.toast(`Loaded ${events.length} events`, 'success');
+      } catch (e) {
+        wrap.innerHTML = `<div class="empty-state">${UI.escapeHtml(e.message)}</div>`;
+        UI.toast(e.message, 'error');
+      } finally {
+        UI.setLoading(loadBtn, false);
+      }
+    };
+
+    document.getElementById('events').addEventListener('click', async (ev) => {
+      const code = ev.target.dataset.code;
+      const eventId = ev.target.dataset.id;
+      if (ev.target.classList.contains('copy-code')) {
+        UI.copyText(code);
+        return;
+      }
+      if (ev.target.classList.contains('share-link')) {
+        const url = `${location.origin}/verify-attendance.html?eventId=${encodeURIComponent(eventId)}&code=${encodeURIComponent(code)}`;
+        UI.copyText(url);
+        return;
+      }
+      if (!ev.target.classList.contains('roster-btn')) return;
+      const key = document.getElementById('adminKey').value;
+      const attWrap = document.getElementById('attendance');
+      attWrap.innerHTML = UI.skeletonCards(1);
+      const rows = await fetch(`/api/attendance/event/${eventId}`, {
+        headers: { 'X-Admin-Key': key },
+      }).then((r) => r.json());
+      if (!rows.length) {
+        attWrap.innerHTML = '<div class="card"><p class="empty-state" style="padding:1rem">No attendance yet for this event.</p></div>';
+        return;
+      }
+      attWrap.innerHTML = `
+        <div class="card">
+          <h2>Attendance roster — ${UI.escapeHtml(eventId)}</h2>
+          <table class="roster-table">
+            <thead><tr><th>Student</th><th>ERP ID</th><th>Verified at</th></tr></thead>
+            <tbody>${rows.map((r) => `
+              <tr>
+                <td>${UI.escapeHtml(r.student?.fullName || '—')}</td>
+                <td><code>${UI.escapeHtml(r.erpStudentId)}</code></td>
+                <td>${UI.escapeHtml(new Date(r.verifiedAt).toLocaleString())}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      UI.celebrate(attWrap.querySelector('.card'));
+    });
+
+    loadBtn.click();
+  </script>
+</body>
+</html>

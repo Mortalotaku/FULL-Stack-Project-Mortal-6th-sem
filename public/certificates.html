@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My certificates</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Participation certificates</h1>
+    <p>Preview, print, and verify your certificates</p>
+    <nav class="tabs">
+      <a href="/">Home</a>
+      <a href="/events.html">Upcoming events</a>
+      <a href="/enroll.html">Enroll</a>
+      <a href="/verify-attendance.html">Verify attendance</a>
+      <a href="/certificates.html">My certificates</a>
+      <a href="/erp.html">ERP link</a>
+      <a href="/coordinator.html">Coordinator</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="card no-print interactive">
+      <label for="erpStudentId">ERP student ID</label>
+      <input id="erpStudentId" data-student-input data-sync-student="true" type="text" placeholder="STU-2024-001">
+      <div class="btn-row">
+        <button type="button" class="btn" id="load">Load certificates</button>
+      </div>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card no-print">
+      <h2>Issue new certificate</h2>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem">After verified attendance:</p>
+      <label for="issueEvent">Event</label>
+      <select id="issueEvent"><option value="">Loading…</option></select>
+      <label for="issueErp">ERP student ID</label>
+      <input id="issueErp" data-student-input type="text" placeholder="STU-2024-001">
+      <button type="button" class="btn" id="issueGo">Issue certificate</button>
+    </div>
+
+    <div id="certs"></div>
+    <div id="print-area"></div>
+  </main>
+
+  <footer>Certificates include a public verification token</footer>
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const loadBtn = document.getElementById('load');
+
+    (async () => {
+      const events = await api('/api/events').catch(() => []);
+      const opts = events.map((e) => `<option value="${UI.escapeHtml(e.id)}">${UI.escapeHtml(e.title)}</option>`).join('');
+      document.getElementById('issueEvent').innerHTML = '<option value="">Select event…</option>' + opts;
+      if (params.get('erpStudentId')) loadCerts();
+    })();
+
+    loadBtn.onclick = loadCerts;
+
+    async function loadCerts() {
+      const msg = document.getElementById('msg');
+      const wrap = document.getElementById('certs');
+      const id = document.getElementById('erpStudentId').value.trim();
+      if (!id) return showMsg(msg, 'Enter ERP student ID', false);
+      UI.setLoading(loadBtn, true);
+      wrap.innerHTML = UI.skeletonCards(2);
+      try {
+        const list = await api(`/api/certificates/mine?erpStudentId=${encodeURIComponent(id)}`);
+        if (!list.length) {
+          wrap.innerHTML = '<div class="empty-state">No certificates yet.<br><a href="/verify-attendance.html">Verify attendance</a> first, then issue.</div>';
+        } else {
+          wrap.innerHTML = list.map((c) => renderCertCard(c)).join('');
+        }
+        showMsg(msg, list.length ? `${list.length} certificate(s) loaded` : 'None yet', !!list.length);
+      } catch (e) {
+        wrap.innerHTML = '';
+        showMsg(msg, e.message, false);
+      } finally {
+        UI.setLoading(loadBtn, false);
+      }
+    }
+
+    function renderCertCard(c) {
+      const ev = c.event || {};
+      return `
+        <div class="card cert-card interactive" data-event="${c.eventId}" data-erp="${c.erpStudentId}" data-token="${UI.escapeHtml(c.verifyToken)}">
+          <h2>${UI.escapeHtml(ev.title || 'Event')}</h2>
+          <p style="margin:0;color:var(--muted)">${UI.escapeHtml(ev.date || '')} · ${UI.escapeHtml(ev.venue || '')}</p>
+          <p style="font-size:0.85rem;margin-top:0.75rem">Token: <code>${UI.escapeHtml(c.verifyToken)}</code></p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-sm preview-btn">Preview</button>
+            <button type="button" class="btn btn-sm secondary copy-token">Copy token</button>
+            <button type="button" class="btn btn-sm secondary print-btn">Print</button>
+          </div>
+        </div>`;
+    }
+
+    document.getElementById('certs').addEventListener('click', async (e) => {
+      const card = e.target.closest('.cert-card');
+      if (!card) return;
+      const token = card.dataset.token;
+      if (e.target.classList.contains('copy-token')) UI.copyText(token);
+      if (e.target.classList.contains('preview-btn')) await previewCert(token);
+      if (e.target.classList.contains('print-btn')) await printCert(token);
+    });
+
+    async function previewCert(token) {
+      const verify = await api(`/api/certificates/verify?token=${encodeURIComponent(token)}`);
+      if (!verify.valid) return UI.toast('Invalid certificate', 'error');
+      UI.openModal('Certificate preview', buildCertHtml(verify, token));
+    }
+
+    async function printCert(token) {
+      const verify = await api(`/api/certificates/verify?token=${encodeURIComponent(token)}`);
+      if (!verify.valid) return UI.toast('Invalid certificate', 'error');
+      document.getElementById('print-area').innerHTML = buildCertHtml(verify, token);
+      window.print();
+    }
+
+    function buildCertHtml(verify, token) {
+      return `
+        <div class="card" style="text-align:center;padding:2rem;border:3px double #94a3b8;background:#fff;color:#111">
+          <p style="letter-spacing:0.2em;text-transform:uppercase;font-size:0.85rem;color:#64748b">Certificate of Participation</p>
+          <h1 style="font-size:1.75rem;margin:1rem 0;color:#0f172a">${UI.escapeHtml(verify.participant?.name || '')}</h1>
+          <p>ERP ID: ${UI.escapeHtml(verify.participant?.erpStudentId || '')}</p>
+          <p style="margin:1.5rem 0;color:#475569">has participated in</p>
+          <h2 style="margin:0;color:#0f172a">${UI.escapeHtml(verify.event?.title || '')}</h2>
+          <p>${UI.escapeHtml(verify.event?.date || '')} · ${UI.escapeHtml(verify.event?.venue || '')}</p>
+          <p style="margin-top:2rem;font-size:0.8rem;color:#64748b">Issued: ${UI.escapeHtml(verify.issuedAt?.slice(0, 10) || '')}</p>
+          <p style="font-size:0.75rem">Verify: ${UI.escapeHtml(token.slice(0, 12))}…</p>
+        </div>`;
+    }
+
+    document.getElementById('issueGo').onclick = async () => {
+      const btn = document.getElementById('issueGo');
+      UI.setLoading(btn, true);
+      try {
+        const erpStudentId = document.getElementById('issueErp').value.trim();
+        await api('/api/certificates/issue', {
+          method: 'POST',
+          body: JSON.stringify({
+            eventId: document.getElementById('issueEvent').value,
+            erpStudentId,
+          }),
+        });
+        document.getElementById('erpStudentId').value = erpStudentId;
+        UI.toast('Certificate issued!', 'success');
+        loadCerts();
+      } catch (e) {
+        UI.toast(e.message, 'error');
+      } finally {
+        UI.setLoading(btn, false);
+      }
+    };
+  </script>
+</body>
+</html>

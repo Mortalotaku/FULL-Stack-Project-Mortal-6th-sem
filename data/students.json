@@ -1,0 +1,30 @@
+[
+  {
+    "erpStudentId": "STU-2024-001",
+    "fullName": "Aisha Khan",
+    "email": "aisha@college.edu",
+    "department": "CS",
+    "syncedAt": "2026-05-27T07:44:06.724Z"
+  },
+  {
+    "erpStudentId": "STU-2024-002",
+    "fullName": "Rohan Mehta",
+    "email": "rohan@college.edu",
+    "department": "ECE",
+    "syncedAt": "2026-05-27T07:44:06.727Z"
+  },
+  {
+    "erpStudentId": "STU-2024-003",
+    "fullName": "Priya Nair",
+    "email": "priya@college.edu",
+    "department": "Mech",
+    "syncedAt": "2026-05-27T07:44:06.727Z"
+  },
+  {
+    "erpStudentId": "STU-2024-004",
+    "fullName": "Demo Sync Student",
+    "email": "demo4@college.edu",
+    "department": "CSE",
+    "syncedAt": "2026-05-27T07:50:35.245Z"
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "name": "campus-club-platform",
+  "version": "1.0.0",
+  "description": "Campus club software: ERP sync, events, enrollment, verified attendance, certificates",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5"
+  }
+}

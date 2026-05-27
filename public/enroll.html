@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enroll in event</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Enroll in an event</h1>
+    <p>Pick an event from the list — student ID syncs from the top bar</p>
+    <nav class="tabs">
+      <a href="/">Home</a>
+      <a href="/events.html">Upcoming events</a>
+      <a href="/enroll.html">Enroll</a>
+      <a href="/verify-attendance.html">Verify attendance</a>
+      <a href="/certificates.html">My certificates</a>
+      <a href="/erp.html">ERP link</a>
+      <a href="/coordinator.html">Coordinator</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="card interactive">
+      <h2>Enrollment form</h2>
+      <label for="eventSelect">Select event</label>
+      <select id="eventSelect" data-student-input="false">
+        <option value="">Loading events…</option>
+      </select>
+
+      <label for="erpStudentId">ERP student ID</label>
+      <input id="erpStudentId" type="text" data-student-input data-sync-student="true" placeholder="STU-2024-001" autocomplete="off">
+
+      <button type="button" class="btn" id="go">Enroll now</button>
+      <div id="msg" class="msg"></div>
+    </div>
+  </main>
+
+  <footer>Only ERP-synced students can enroll</footer>
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const goBtn = document.getElementById('go');
+
+    (async () => {
+      const sel = document.getElementById('eventSelect');
+      try {
+        const events = await api('/api/events/upcoming');
+        sel.innerHTML = '<option value="">Choose an event…</option>' +
+          events.map((e) => `<option value="${UI.escapeHtml(e.id)}">${UI.escapeHtml(e.title)} (${e.date})</option>`).join('');
+        if (params.get('eventId')) sel.value = params.get('eventId');
+      } catch {
+        sel.innerHTML = '<option value="">Could not load events</option>';
+      }
+    })();
+
+    goBtn.onclick = async () => {
+      const msg = document.getElementById('msg');
+      msg.className = 'msg';
+      UI.setLoading(goBtn, true);
+      try {
+        const eventId = document.getElementById('eventSelect').value || params.get('eventId');
+        const erpStudentId = document.getElementById('erpStudentId').value.trim();
+        if (!eventId || !erpStudentId) throw new Error('Select event and student ID');
+        await api('/api/enrollments', {
+          method: 'POST',
+          body: JSON.stringify({ eventId, erpStudentId }),
+        });
+        UI.setStudentId(erpStudentId);
+        showMsg(msg, 'Enrollment successful!', true);
+        UI.toast('You are enrolled — verify attendance at the event', 'success');
+        UI.openModal('Enrolled!', `
+          <p>You're registered for this event.</p>
+          <div class="btn-row">
+            <a href="/verify-attendance.html?eventId=${encodeURIComponent(eventId)}" class="btn" style="text-decoration:none;display:inline-block">Go to attendance</a>
+            <button type="button" class="btn secondary" onclick="UI.closeModal()">Close</button>
+          </div>`);
+      } catch (e) {
+        showMsg(msg, e.message, false);
+        UI.toast(e.message, 'error');
+      } finally {
+        UI.setLoading(goBtn, false);
+      }
+    };
+  </script>
+</body>
+</html>
